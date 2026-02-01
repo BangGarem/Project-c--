@@ -1,8 +1,8 @@
 // ================= main.cpp =================
 #include <iostream>
 #include <ctime>
-#include "Player.h"
-#include "Enemy.h"
+#include "Game.h"
+#include <limits>
 
 void drawBar(int hp, int maxHp) {
     int w = 20;
@@ -14,20 +14,18 @@ void drawBar(int hp, int maxHp) {
 }
 
 int main() {
+
+    std::cout << "Program started\n";
     srand(time(nullptr));
 
-    Player player;
-    Enemy enemy;
+    Game game;
+    game.run();
 
-    while (player.isAlive() && enemy.isAlive()) {
-        player.applyStatusEffects();
-        if (!player.isAlive()) break;
-        player.takeTurn(enemy);
-
-        enemy.applyStatusEffects();
-        if (!enemy.isAlive()) break;
-        enemy.takeTurn(player);
-    }
+    // ... inside Game::run(), after printing the result:
+    std::cout << "\nPress Enter to continue...";
+    std::cin.clear();
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.get();
 
     return 0;
 }

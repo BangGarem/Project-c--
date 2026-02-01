@@ -4,10 +4,13 @@
 
 #include "Character.h"
 #include <fstream>
+#include <limits> // for input validation
+#include <iostream>
 
 class Player : public Character {
     int exp;
     int expToNext;
+    int ultimateCooldown; // new
 
 public:
     Player() {
@@ -18,6 +21,7 @@ public:
         energy = 0;
         exp = 0;
         expToNext = 100;
+        ultimateCooldown = 0;
     }
 
     float adrenalineMultiplier() const {
@@ -37,47 +41,99 @@ public:
     }
 
     void takeTurn(Character& enemy) override {
+        // start-of-turn effects
         energy = std::min(energy + 20, 100);
-        if (stunned) return;
+        if (stunned) {
+            std::cout << "Player is stunned! Turn skipped.\n";
+            if (ultimateCooldown > 0) --ultimateCooldown;
+            return;
+        }
 
-        int choice;
-        std::cin >> choice;
+        // drop cooldown
+        if (ultimateCooldown > 0) --ultimateCooldown;
+
+        // action menu
+        int choice = 0;
+        while (true) {
+            std::cout << "\n-- Your turn --\n";
+            std::cout << "HP: " << hp << "/" << maxHp << "  Energy: " << energy << "  Ult CD: " << ultimateCooldown << "\n";
+            std::cout << "1) Basic Attack\n";
+            std::cout << "2) Skill (Burn) - cost 40\n";
+            std::cout << "3) Ultimate - cost 100 (cooldown 3)\n";
+            std::cout << "4) Save\n";
+            std::cout << "Choose action: ";
+
+            if (!(std::cin >> choice)) {
+                std::cin.clear();
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                std::cout << "Invalid input, try again.\n";
+                continue;
+            }
+
+            if (choice < 1 || choice > 4) {
+                std::cout << "Invalid choice, try again.\n";
+                continue;
+            }
+            break;
+        }
 
         int dmg = 0;
-        if (choice == 2 && energy >= 40) {
-            energy -= 40;
-            dmg = baseDamage * 1.5f;
-            enemy.addStatus(StatusType::Burn, 3, 5);
+        if (choice == 2) { // Skill: Burn
+            if (energy < 40) {
+                std::cout << "Not enough energy for Skill. Performing Basic Attack instead.\n";
+                dmg = baseDamage;
+                energy = std::min(energy + 20, 100);
+            } else {
+                energy -= 40;
+                dmg = static_cast<int>(baseDamage * 1.5f);
+                enemy.addStatus(StatusType::Burn, 3, 5);
+                std::cout << "Player used Skill (Burn)!\n";
+            }
         }
-        else if (choice == 3 && energy >= 100) {
-            energy -= 100;
-            float crit = (rand() % 100 < 40) ? 2.0f : 1.2f;
-            dmg = baseDamage * 3.0f * crit;
+        else if (choice == 3) { // Ultimate
+            if (energy < 100) {
+                std::cout << "Not enough energy for Ultimate. Performing Basic Attack instead.\n";
+                dmg = baseDamage;
+                energy = std::min(energy + 20, 100);
+            } else if (ultimateCooldown > 0) {
+                std::cout << "Ultimate is on cooldown. Performing Basic Attack instead.\n";
+                dmg = baseDamage;
+                energy = std::min(energy + 20, 100);
+            } else {
+                energy -= 100;
+                ultimateCooldown = 3;
+                float crit = (rand() % 100 < 50) ? 2.0f : 1.5f;
+                dmg = static_cast<int>(baseDamage * 4.0f * crit);
+                std::cout << "Player used ULTIMATE! Massive damage!\n";
+            }
         }
         else if (choice == 4) {
             save();
             return;
         }
-        else {
+        else { // Basic attack
             dmg = baseDamage;
             energy = std::min(energy + 20, 100);
+            std::cout << "Player used Basic Attack.\n";
         }
 
-        dmg = dmg * adrenalineMultiplier() * rng();
+        // apply multipliers and RNG
+        dmg = static_cast<int>(dmg * adrenalineMultiplier() * rng() * damageModifier);
         enemy.receiveDamage(dmg);
+        std::cout << "Dealt " << dmg << " damage.\n";
     }
 
     void save() {
         std::ofstream f("save.dat");
         f << level << " " << hp << " " << maxHp << " "
           << baseDamage << " " << energy << " "
-          << exp << " " << expToNext;
+          << exp << " " << expToNext << " " << ultimateCooldown;
     }
 
     void load() {
         std::ifstream f("save.dat");
         if (f)
-            f >> level >> hp >> maxHp >> baseDamage >> energy >> exp >> expToNext;
+            f >> level >> hp >> maxHp >> baseDamage >> energy >> exp >> expToNext >> ultimateCooldown;
     }
 };
 
